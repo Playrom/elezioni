@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Monitoraggio Elezioni</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Messina - lista 23</p>
+        <h1>Monitoraggio Elezioni</h1>
+      </div>
+      <div class="header-actions">
+        <span id="saveStatus" class="save-status">Pronto</span>
+        <button id="resetAllBtn" class="ghost danger" type="button">Azzera dati</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="summary-grid" aria-label="Riepilogo">
+        <article class="metric">
+          <span>Sezioni</span>
+          <strong id="metricSections">0</strong>
+          <small id="metricSectionsMeta">nessun dato</small>
+        </article>
+        <article class="metric">
+          <span>Sezioni compilate</span>
+          <strong id="metricFilled">0</strong>
+          <small id="metricFilledMeta">0%</small>
+        </article>
+        <article class="metric">
+          <span>Preferenze monitorate</span>
+          <strong id="metricPrefs">0</strong>
+          <small>4 candidati</small>
+        </article>
+        <article class="metric">
+          <span>Lista / Sindaco</span>
+          <strong id="metricListMayor">0 / 0</strong>
+          <small>Federico / Basile</small>
+        </article>
+      </section>
+
+      <section class="chart-grid" aria-label="Grafici riepilogativi">
+        <article class="chart-card">
+          <div class="chart-head">
+            <h2>Copertura sezioni</h2>
+            <strong id="coveragePercent">0%</strong>
+          </div>
+          <div class="progress-track">
+            <span id="coverageBar" style="width: 0%"></span>
+          </div>
+          <p id="coverageMeta">0 sezioni compilate su 0</p>
+        </article>
+        <article class="chart-card">
+          <div class="chart-head">
+            <h2>Preferenze candidati</h2>
+            <span>consolidato</span>
+          </div>
+          <div id="candidateChart" class="bar-chart"></div>
+        </article>
+        <article class="chart-card">
+          <div class="chart-head">
+            <h2>Avanzamento circoscrizioni</h2>
+            <span>sezioni</span>
+          </div>
+          <div id="circChart" class="bar-chart compact-bars"></div>
+        </article>
+        <article class="chart-card">
+          <div class="chart-head">
+            <h2>Lista e sindaco</h2>
+            <span>consolidato / ufficiale</span>
+          </div>
+          <div id="listMayorChart" class="bar-chart paired-bars"></div>
+        </article>
+      </section>
+
+      <nav class="tabs" aria-label="Sezioni app">
+        <button class="tab active" type="button" data-tab="monitoraggio">Monitoraggio</button>
+        <button class="tab" type="button" data-tab="confronto">Confronto</button>
+        <button class="tab" type="button" data-tab="ufficiali">Ufficiali</button>
+        <button class="tab" type="button" data-tab="importa">Importa</button>
+        <button class="tab" type="button" data-tab="esporta">Esporta</button>
+      </nav>
+
+      <section id="tab-monitoraggio" class="tab-panel active">
+        <div class="panel-bar">
+          <div>
+            <h2>Inserimento per sezione</h2>
+            <p>Dati personali salvati in automatico nel browser.</p>
+          </div>
+          <div class="filters">
+            <input id="searchInput" type="search" placeholder="Cerca sezione, plesso, via">
+            <select id="circFilter">
+              <option value="">Tutte le circoscrizioni</option>
+            </select>
+            <label class="check">
+              <input id="filledOnly" type="checkbox">
+              <span>solo compilate</span>
+            </label>
+          </div>
+        </div>
+        <div class="table-wrap monitor-wrap">
+          <table id="monitorTable" class="data-table monitor-table">
+            <thead>
+              <tr>
+                <th>Sez.</th>
+                <th>Cir.</th>
+                <th>Plesso</th>
+                <th>Indirizzo</th>
+                <th>Romano</th>
+                <th>Guadagna</th>
+                <th>Nicoletti</th>
+                <th>Riso</th>
+                <th>Lista</th>
+                <th>Basile</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="tab-confronto" class="tab-panel">
+        <div class="panel-bar">
+          <div>
+            <h2>Confronto consolidato / ufficiale</h2>
+            <p>Il dato manuale sostituisce quello ufficiale quando è presente nella stessa sezione.</p>
+          </div>
+          <button id="showOnlyDiffs" class="ghost" type="button">Mostra solo differenze</button>
+        </div>
+        <div class="split-grid">
+          <div class="table-card">
+            <h3>Totali monitorati</h3>
+            <div class="table-wrap">
+              <table id="candidateCompareTable" class="data-table compact">
+                <thead>
+                  <tr>
+                    <th>Voce</th>
+                    <th>Consolidato</th>
+                    <th>Manuale</th>
+                    <th>Ufficiale</th>
+                    <th>Delta</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="table-card">
+            <h3>Sezioni da controllare</h3>
+            <div class="table-wrap compare-scroll">
+              <table id="sectionCompareTable" class="data-table compact">
+                <thead>
+                  <tr>
+                    <th>Sez.</th>
+                    <th>Voce</th>
+                    <th>Usato</th>
+                    <th>Fonte</th>
+                    <th>Ufficiale</th>
+                    <th>Delta</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-ufficiali" class="tab-panel">
+        <div class="panel-bar">
+          <div>
+            <h2>Dati ufficiali importati</h2>
+            <p>CSV del Comune in sola lettura.</p>
+          </div>
+          <button id="refreshOfficialBtn" type="button">Refresh ufficiali</button>
+        </div>
+        <div id="refreshOfficialStatus" class="refresh-status">Refresh automatico non ancora eseguito.</div>
+        <div class="seats-layout">
+          <div class="table-card seats-card">
+            <div class="seats-head">
+              <div>
+                <h3>Seggi stimati per lista</h3>
+                <p id="seatSummary">Importa i voti di lista e sindaco per calcolare i seggi.</p>
+              </div>
+              <label class="seat-control">
+                <span>Consiglieri</span>
+                <input id="councilSeatsInput" type="number" min="1" max="80" step="1" value="32">
+              </label>
+            </div>
+            <div class="seat-highlight" id="federicoSeatHighlight">
+              <span>Federico per Messina</span>
+              <strong>0 seggi</strong>
+            </div>
+            <div class="table-wrap seats-scroll">
+              <table id="seatAllocationTable" class="data-table compact">
+                <thead>
+                  <tr>
+                    <th>Lista</th>
+                    <th>Sindaco collegato</th>
+                    <th>Voti</th>
+                    <th>%</th>
+                    <th>Seggi</th>
+                    <th>Nota</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="table-card">
+            <h3>Collegamento liste</h3>
+            <p class="mapping-note">Il CSV liste non include il candidato sindaco collegato: puoi correggere qui la mappa usata per premio e riparto.</p>
+            <div class="table-wrap mapping-scroll">
+              <table id="coalitionMappingTable" class="data-table compact">
+                <thead>
+                  <tr>
+                    <th>N.</th>
+                    <th>Lista</th>
+                    <th>Sindaco</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="official-grid">
+          <div class="table-card">
+            <h3>Sindaco</h3>
+            <div class="table-wrap">
+              <table id="mayorOfficialTable" class="data-table compact">
+                <thead>
+                  <tr>
+                    <th>N.</th>
+                    <th>Candidato</th>
+                    <th>Voti</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="table-card">
+            <h3>Liste</h3>
+            <div class="table-wrap official-scroll">
+              <table id="listOfficialTable" class="data-table compact">
+                <thead>
+                  <tr>
+                    <th>N.</th>
+                    <th>Lista</th>
+                    <th>Voti</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="table-card">
+            <h3>Preferenze lista 23</h3>
+            <div class="table-wrap official-scroll">
+              <table id="prefOfficialTable" class="data-table compact">
+                <thead>
+                  <tr>
+                    <th>N.</th>
+                    <th>Candidato</th>
+                    <th>Voti</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="table-card">
+            <h3>Bianche, nulle e contestate</h3>
+            <div class="table-wrap">
+              <table id="totalsOfficialTable" class="data-table compact">
+                <thead>
+                  <tr>
+                    <th>Voce</th>
+                    <th>Totale</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-importa" class="tab-panel">
+        <div class="panel-bar">
+          <div>
+            <h2>Importa fonti</h2>
+            <p>I file ufficiali restano separati dai dati personali.</p>
+          </div>
+        </div>
+        <div class="import-grid">
+          <article class="import-card">
+            <h3>Voti sindaco</h3>
+            <p>CSV: <code>VotiSEZ_Sind</code></p>
+            <input type="file" accept=".csv,text/csv" data-import="mayors">
+            <small id="status-mayors">Non importato</small>
+          </article>
+          <article class="import-card">
+            <h3>Voti lista</h3>
+            <p>CSV: <code>VotiSEZ_Liste</code></p>
+            <input type="file" accept=".csv,text/csv" data-import="lists">
+            <small id="status-lists">Non importato</small>
+          </article>
+          <article class="import-card">
+            <h3>Totali sezione</h3>
+            <p>CSV: <code>VotiSEZ_Tot</code></p>
+            <input type="file" accept=".csv,text/csv" data-import="totals">
+            <small id="status-totals">Non importato</small>
+          </article>
+          <article class="import-card">
+            <h3>Preferenze lista 23</h3>
+            <p>CSV: <code>VotiSEZ_Cons_..._L23</code></p>
+            <input type="file" accept=".csv,text/csv" data-import="prefs">
+            <small id="status-prefs">Non importato</small>
+          </article>
+          <article class="import-card wide">
+            <h3>Monitoraggio personale</h3>
+            <p>XLSX con plessi, sezioni, voti personali e note.</p>
+            <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" data-import="monitor">
+            <small id="status-monitor">Non importato</small>
+          </article>
+        </div>
+      </section>
+
+      <section id="tab-esporta" class="tab-panel">
+        <div class="panel-bar">
+          <div>
+            <h2>Esporta</h2>
+            <p>CSV compatibili con Excel e backup completo in JSON.</p>
+          </div>
+        </div>
+        <div class="export-grid">
+          <button id="exportMonitorCsv" type="button">Esporta monitoraggio CSV</button>
+          <button id="exportLongCsv" type="button">Esporta preferenze formato lungo</button>
+          <button id="exportBackupJson" type="button">Esporta backup JSON</button>
+          <label class="import-backup">
+            <span>Importa backup JSON</span>
+            <input id="backupInput" type="file" accept=".json,application/json">
+          </label>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="vendor/jszip.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -133,7 +133,7 @@
       renderCompare();
     });
 
-    document.getElementById("exportMonitorCsv").addEventListener("click", exportMonitorCsv);
+    document.getElementById("exportMonitorXlsx").addEventListener("click", exportMonitorXlsx);
     document.getElementById("exportLongCsv").addEventListener("click", exportLongCsv);
     document.getElementById("exportBackupJson").addEventListener("click", exportBackupJson);
     document.getElementById("backupInput").addEventListener("change", importBackupJson);
@@ -1155,24 +1155,33 @@
       .reduce((sum, row) => sum + toNumber(row.votes), 0);
   }
 
-  function exportMonitorCsv() {
+  async function exportMonitorXlsx() {
+    if (!window.JSZip) {
+      showToast("Export Excel non disponibile: JSZip mancante");
+      return;
+    }
+
     const rows = state.personal.sections.map((sectionRow) => {
       const values = getSectionValues(sectionRow.section);
-      return {
-        "Istituto/Plesso": sectionRow.school || "",
-        "Via e Numero Civico": sectionRow.address || "",
-        "Circoscrizione": sectionRow.circ || "",
-        "Sezione": sectionRow.section,
-        "Voti Francesco Romano": valueForExport(values.romano),
-        "Voti Francesca Guadagna": valueForExport(values.guadagna),
-        "Voti Marina Nicoletti": valueForExport(values.nicoletti),
-        "Voti Lucrezia Riso": valueForExport(values.riso),
-        "Voti Lista Federico per Messina": valueForExport(values.list),
-        "Voti Sindaco Basile": valueForExport(values.mayor),
-        "Note": values.note || "",
-      };
+      return [
+        sectionRow.school || "",
+        sectionRow.address || "",
+        valueForExport(sectionRow.circ),
+        sectionRow.section,
+        valueForExport(values.romano),
+        valueForExport(values.guadagna),
+        valueForExport(values.nicoletti),
+        valueForExport(values.riso),
+        valueForExport(values.list),
+        valueForExport(values.mayor),
+        values.note || "",
+      ];
     });
-    downloadText("monitoraggio_personale.csv", toCsv(rows, MONITOR_HEADERS), "text/csv;charset=utf-8");
+
+    const workbookRows = [MONITOR_HEADERS, ...rows];
+    const blob = await buildMonitorWorkbook(workbookRows);
+    downloadBlob("Monitoraggio.xlsx", blob);
+    showToast("Esportato: Monitoraggio.xlsx");
   }
 
   function exportLongCsv() {
@@ -1262,6 +1271,124 @@
     Object.assign(state, createEmptyState());
     renderAll();
     showToast("Dati azzerati");
+  }
+
+  async function buildMonitorWorkbook(rows) {
+    const zip = new JSZip();
+    zip.file("[Content_Types].xml", workbookContentTypesXml());
+    zip.folder("_rels").file(".rels", workbookRootRelsXml());
+    zip.folder("xl").file("workbook.xml", workbookXml());
+    zip.folder("xl").folder("_rels").file("workbook.xml.rels", workbookRelsXml());
+    zip.folder("xl").file("styles.xml", workbookStylesXml());
+    zip.folder("xl").folder("worksheets").file("sheet1.xml", worksheetXml(rows));
+    return await zip.generateAsync({
+      type: "blob",
+      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      compression: "DEFLATE",
+    });
+  }
+
+  function workbookContentTypesXml() {
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+</Types>`;
+  }
+
+  function workbookRootRelsXml() {
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
+  }
+
+  function workbookXml() {
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="Dati Unificati" sheetId="1" r:id="rId1"/>
+  </sheets>
+</workbook>`;
+  }
+
+  function workbookRelsXml() {
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`;
+  }
+
+  function workbookStylesXml() {
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="2">
+    <font><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/></font>
+    <font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>
+  </fonts>
+  <fills count="3">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF0F766E"/><bgColor indexed="64"/></patternFill></fill>
+  </fills>
+  <borders count="2">
+    <border><left/><right/><top/><bottom/><diagonal/></border>
+    <border><left style="thin"><color rgb="FFD8E0DC"/></left><right style="thin"><color rgb="FFD8E0DC"/></right><top style="thin"><color rgb="FFD8E0DC"/></top><bottom style="thin"><color rgb="FFD8E0DC"/></bottom><diagonal/></border>
+  </borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="3">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"/>
+    <xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment wrapText="1"/></xf>
+  </cellXfs>
+  <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`;
+  }
+
+  function worksheetXml(rows) {
+    const cols = [28, 28, 14, 10, 22, 23, 21, 19, 28, 20, 36]
+      .map((width, index) => `<col min="${index + 1}" max="${index + 1}" width="${width}" customWidth="1"/>`)
+      .join("");
+    const sheetRows = rows.map((row, rowIndex) => {
+      const rowNumber = rowIndex + 1;
+      const cells = row.map((value, columnIndex) => worksheetCell(value, rowNumber, columnIndex, rowIndex === 0)).join("");
+      return `<row r="${rowNumber}">${cells}</row>`;
+    }).join("");
+
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
+  <cols>${cols}</cols>
+  <sheetData>${sheetRows}</sheetData>
+  <autoFilter ref="A1:K${rows.length}"/>
+</worksheet>`;
+  }
+
+  function worksheetCell(value, rowNumber, columnIndex, isHeader) {
+    const ref = `${columnName(columnIndex + 1)}${rowNumber}`;
+    const style = isHeader ? 1 : columnIndex === 10 ? 2 : 0;
+    if (value === "" || value === null || value === undefined) {
+      return `<c r="${ref}" s="${style}"/>`;
+    }
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return `<c r="${ref}" s="${style}"><v>${value}</v></c>`;
+    }
+    return `<c r="${ref}" s="${style}" t="inlineStr"><is><t>${escapeXml(value)}</t></is></c>`;
+  }
+
+  function columnName(index) {
+    let name = "";
+    let value = index;
+    while (value > 0) {
+      const modulo = (value - 1) % 26;
+      name = String.fromCharCode(65 + modulo) + name;
+      value = Math.floor((value - modulo) / 26);
+    }
+    return name;
   }
 
   async function readTextFile(file) {
@@ -1570,6 +1697,15 @@
       .replace(/'/g, "&#039;");
   }
 
+  function escapeXml(value) {
+    return textValue(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;");
+  }
+
   function toCsv(rows, headers) {
     const cols = headers || Array.from(rows.reduce((set, row) => {
       Object.keys(row).forEach((key) => set.add(key));
@@ -1592,6 +1728,11 @@
 
   function downloadText(fileName, content, mimeType) {
     const blob = new Blob([content], { type: mimeType });
+    downloadBlob(fileName, blob);
+    showToast(`Esportato: ${fileName}`);
+  }
+
+  function downloadBlob(fileName, blob) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -1600,6 +1741,5 @@
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    showToast(`Esportato: ${fileName}`);
   }
 })();

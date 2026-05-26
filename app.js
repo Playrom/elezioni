@@ -490,14 +490,14 @@
 
   function renderSummary() {
     const sections = state.personal.sections;
-    const filled = sections.filter((section) => hasPersonalData(section.section)).length;
+    const covered = sections.filter((section) => hasSectionCoverage(section.section)).length;
     const totals = effectiveTargetTotals();
     const prefsTotal = TARGET_CANDIDATES.reduce((sum, candidate) => sum + totals[candidate.key], 0);
 
     els.metricSections.textContent = formatNumber(sections.length);
     els.metricSectionsMeta.textContent = sections.length ? `${firstSection()}-${lastSection()} sezioni` : "nessun dato";
-    els.metricFilled.textContent = formatNumber(filled);
-    els.metricFilledMeta.textContent = sections.length ? `${Math.round((filled / sections.length) * 100)}% compilate` : "0%";
+    els.metricFilled.textContent = formatNumber(covered);
+    els.metricFilledMeta.textContent = sections.length ? `${Math.round((covered / sections.length) * 100)}% coperte` : "0%";
     els.metricPrefs.textContent = formatNumber(prefsTotal);
     els.metricListMayor.textContent = `${formatNumber(totals.list)} / ${formatNumber(totals.mayor)}`;
   }
@@ -508,7 +508,7 @@
     const filledOnly = els.filledOnly.checked;
     const rows = state.personal.sections.filter((row) => {
       const matchesCirc = !circ || String(row.circ) === circ;
-      const matchesFilled = !filledOnly || hasPersonalData(row.section);
+      const matchesFilled = !filledOnly || hasSectionCoverage(row.section);
       const haystack = normalizeSearch(`${row.section} ${row.circ || ""} ${row.school || ""} ${row.address || ""}`);
       return matchesCirc && matchesFilled && (!query || haystack.includes(query));
     });
@@ -569,11 +569,11 @@
 
   function renderCoverageChart() {
     const total = state.personal.sections.length;
-    const filled = state.personal.sections.filter((section) => hasPersonalData(section.section)).length;
-    const percent = total ? Math.round((filled / total) * 100) : 0;
+    const covered = state.personal.sections.filter((section) => hasSectionCoverage(section.section)).length;
+    const percent = total ? Math.round((covered / total) * 100) : 0;
     els.coveragePercent.textContent = `${percent}%`;
     els.coverageBar.style.width = `${percent}%`;
-    els.coverageMeta.textContent = `${formatNumber(filled)} sezioni compilate su ${formatNumber(total)}`;
+    els.coverageMeta.textContent = `${formatNumber(covered)} sezioni coperte su ${formatNumber(total)}`;
   }
 
   function renderCandidateChart() {
@@ -595,7 +595,7 @@
       if (!grouped.has(label)) grouped.set(label, { label: `Cir. ${label}`, value: 0, total: 0 });
       const item = grouped.get(label);
       item.total += 1;
-      if (hasPersonalData(row.section)) item.value += 1;
+      if (hasSectionCoverage(row.section)) item.value += 1;
     });
 
     const rows = Array.from(grouped.values())
@@ -1617,6 +1617,11 @@
       || values.list !== null && values.list !== ""
       || values.mayor !== null && values.mayor !== ""
       || Boolean(values.note);
+  }
+
+  function hasSectionCoverage(section) {
+    if (hasPersonalData(section)) return true;
+    return TARGET_CANDIDATES.some((candidate) => officialPrefForSection(section, candidate.number) > 0);
   }
 
   function getSectionMeta(section) {

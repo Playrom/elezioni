@@ -598,6 +598,12 @@ main {
   color: var(--muted);
 }
 
+.data-table tr.personal-seat-row td {
+  background: #fff7ed;
+  border-bottom-color: #fed7aa;
+  font-weight: 800;
+}
+
 .coalition-select {
   min-height: 32px;
   width: 100%;

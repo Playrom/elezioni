@@ -809,6 +809,17 @@
       <strong>${formatNumber(federico ? federico.seats : 0)} seggi</strong>
     `;
 
+    const personalSeatRow = result.personalSeat ? `
+      <tr class="personal-seat-row">
+        <td>Seggio personale sindaco</td>
+        <td>${escapeHtml(result.personalSeat.name)}</td>
+        <td class="num">${formatNumber(result.personalSeat.votes)}</td>
+        <td class="num">${formatPercent(result.personalSeat.votePct)}</td>
+        <td class="num">1</td>
+        <td>miglior sindaco non eletto</td>
+      </tr>
+    ` : "";
+
     els.seatAllocationBody.innerHTML = result.rows.map((row) => `
       <tr class="${row.listNumber === TARGET_LIST.number ? "target-row" : ""} ${row.eligible ? "" : "threshold-out"}">
         <td>${escapeHtml(row.listNumber)} - ${escapeHtml(row.listName)}</td>
@@ -818,7 +829,7 @@
         <td class="num">${formatNumber(row.seats)}</td>
         <td>${escapeHtml(row.note)}</td>
       </tr>
-    `).join("");
+    `).join("") + personalSeatRow;
   }
 
   function renderCoalitionMapping() {
@@ -857,12 +868,12 @@
 
   function renderListOfficial() {
     const rows = sumBy(state.official.lists, "listNumber", "listName");
-    els.listOfficialBody.innerHTML = renderNumberNameRows(rows, "Nessun CSV liste importato.");
+    els.listOfficialBody.innerHTML = renderNumberNameRows(rows, "Nessun CSV liste importato.", { sortByVotes: true, includePct: true });
   }
 
   function renderPrefOfficial() {
     const rows = sumBy(state.official.prefs, "candidateNumber", "candidateName");
-    els.prefOfficialBody.innerHTML = renderNumberNameRows(rows, "Nessun CSV preferenze importato.");
+    els.prefOfficialBody.innerHTML = renderNumberNameRows(rows, "Nessun CSV preferenze importato.", { sortByVotes: true, includePct: true });
   }
 
   function renderTotalsOfficial() {
@@ -900,6 +911,8 @@
     const totalMayorVotes = mayorTotals.reduce((sum, row) => sum + toNumber(row.votes), 0);
     const winningMayor = mayorTotals.slice().sort((a, b) => b.votes - a.votes)[0] || null;
     const winningMayorPct = winningMayor && totalMayorVotes ? (winningMayor.votes / totalMayorVotes) * 100 : 0;
+    const personalSeat = getBestLosingMayorSeat(mayorTotals, winningMayor, totalMayorVotes);
+    const personalSeatCount = personalSeat ? 1 : 0;
     const firstRoundElected = Boolean(winningMayor && winningMayorPct >= 40);
     const thresholdVotes = totalListVotes * 0.05;
 
@@ -947,8 +960,11 @@
 
     if (canApplyBonus) {
       const otherGroups = groups.filter((group) => group.key !== winningGroup.key);
-      groupSeats = allocateDhondt(otherGroups, totalSeats - majoritySeats);
+      const minorityListSeats = Math.max(0, totalSeats - majoritySeats - personalSeatCount);
+      groupSeats = allocateDhondt(otherGroups, minorityListSeats);
       groupSeats.set(winningGroup.key, majoritySeats);
+    } else if (personalSeatCount) {
+      groupSeats = allocateDhondt(groups, Math.max(0, totalSeats - personalSeatCount));
     }
 
     groups.forEach((group) => {
@@ -969,10 +985,29 @@
     const bonusText = canApplyBonus
       ? `premio applicato: ${majoritySeats} seggi alla coalizione ${winningMayor.name}`
       : "premio non applicato con i dati importati";
+    const personalSeatText = personalSeat
+      ? `seggio personale a ${personalSeat.name}, escluso dai seggi lista della minoranza`
+      : "nessun sindaco non eletto sopra il 20%";
     return {
       rows,
-      summary: `${totalSeats} seggi, soglia 5%, sindaco leader: ${winnerText}; ${bonusText}.`,
+      personalSeat,
+      summary: `${totalSeats} seggi, soglia 5%, sindaco leader: ${winnerText}; ${bonusText}; ${personalSeatText}.`,
     };
+  }
+
+  function getBestLosingMayorSeat(mayorTotals, winningMayor, totalMayorVotes) {
+    if (!winningMayor || !totalMayorVotes) return null;
+    const loser = mayorTotals
+      .filter((mayor) => mayor.number !== winningMayor.number)
+      .map((mayor) => ({
+        number: mayor.number,
+        name: mayor.name,
+        votes: mayor.votes,
+        votePct: (mayor.votes / totalMayorVotes) * 100,
+      }))
+      .filter((mayor) => mayor.votePct >= 20)
+      .sort((a, b) => b.votes - a.votes || a.number - b.number)[0];
+    return loser || null;
   }
 
   function buildGroups(lists) {
@@ -1026,18 +1061,22 @@
   }
 
   function sortSeatsRows(a, b) {
-    if (a.listNumber === TARGET_LIST.number) return -1;
-    if (b.listNumber === TARGET_LIST.number) return 1;
     return b.seats - a.seats || b.votes - a.votes || a.listNumber - b.listNumber;
   }
 
-  function renderNumberNameRows(rows, emptyText) {
-    if (!rows.length) return `<tr><td colspan="3" class="muted">${emptyText}</td></tr>`;
-    return rows.map((row) => `
+  function renderNumberNameRows(rows, emptyText, options = {}) {
+    const colSpan = options.includePct ? 4 : 3;
+    if (!rows.length) return `<tr><td colspan="${colSpan}" class="muted">${emptyText}</td></tr>`;
+    const totalVotes = rows.reduce((sum, row) => sum + toNumber(row.votes), 0);
+    const sorted = options.sortByVotes
+      ? rows.slice().sort((a, b) => b.votes - a.votes || a.number - b.number)
+      : rows;
+    return sorted.map((row) => `
       <tr>
         <td class="num">${escapeHtml(row.number)}</td>
         <td>${escapeHtml(row.name)}</td>
         <td class="num">${formatNumber(row.votes)}</td>
+        ${options.includePct ? `<td class="num">${formatPercent(totalVotes ? (row.votes / totalVotes) * 100 : 0)}</td>` : ""}
       </tr>
     `).join("");
   }
